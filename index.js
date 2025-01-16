@@ -1,28 +1,30 @@
+const http = require("http");
+const { app, ciiList } = require('./src/api');
+const setupWebSocket = require("./src/websocket");
 const io = require("socket.io-client");
-const WebSocketServer = require("ws");
 
-// Connect to AIS data server
+const server = http.createServer(app);
+
+const wss = setupWebSocket(server);
+
 const aisSocket = io("http://146.190.89.97:6767", {
-  auth: { token: "labramsjosgandoss" },
-  transports: ["websocket"],
+    auth: { token: "labramsjosgandoss" },
+    transports: ["websocket"],
 });
 
 aisSocket.on("connect", () => {
-  console.log("Connected to AIS server.");
+    console.log("Connected to AIS server.");
 });
 
-// Broadcast AIS data to frontend
 aisSocket.on("messageFromServer", (data) => {
-  console.log("Received AIS data:", data);
-
-  // Send data to frontend
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocketServer.OPEN) {
-      client.send(JSON.stringify(data));
-    }
-  });
+    const dataJson = JSON.parse(JSON.stringify(data));
+    const existingItemIndex = ciiList.findIndex(item => item.mmsi === dataJson.message.data.mmsi);
+    dataJson.message.data.cii = ciiList[existingItemIndex]?.cii ?? 'null';
+    wss.broadcast(dataJson);
+    console.log("Sent AIS data:", dataJson);
 });
 
-// WebSocket server for frontend
-const wss = new WebSocketServer.Server({ port: 8080 });
-console.log("WebSocket server running on ws://localhost:8080");
+const PORT = 8080;
+server.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
