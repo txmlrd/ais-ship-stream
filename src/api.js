@@ -2,9 +2,15 @@ const express = require('express');
 const cors = require('cors')
 
 const app = express();
+
 app.use(cors({
-    origin: 'http://localhost:3000', // Menyebutkan origin yang diizinkan
+    origin: [
+        'http://localhost:3000',
+        'http://128.199.224.125:3000',
+        'https://aismade.my.id'
+    ]
 }));
+
 app.use(express.json());
 
 let ciiList = [];
