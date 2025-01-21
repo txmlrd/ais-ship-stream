@@ -1,15 +1,12 @@
 const express = require('express');
-const cors = require('cors')
+const cors = require('cors');
+const RecordedValue = require('./schemas/recordedValue');
+const { default: mongoose } = require('mongoose');
+const { calculateCii } = require('./utils/cii');
 
 const app = express();
 
-app.use(cors({
-    origin: [
-        'http://localhost:3000',
-        'http://128.199.224.125:3000',
-        'https://aismade.my.id'
-    ]
-}));
+app.use(cors());
 
 app.use(express.json());
 
@@ -37,5 +34,91 @@ app.post("/cii", async (req, res) => {
 app.get("/cii", async (req, res) => {
     res.json(ciiList);
 });
+
+app.post("/cii/:id/volume", async (req, res) => {
+    const { volume } = req.body;
+    const { id } = req.params;
+
+    try {
+        const record = await RecordedValue.findOne({ _id: id });
+
+        if (!record) {
+            return res.status(404).json({ message: "Record not found" });
+        }
+
+        const cii = calculateCii(volume, record.distance);
+
+        record.volume = volume;
+        record.cii = cii;
+        await record.save();
+
+        return res.status(200).json({ message: "Record updated successfully", record });
+    } catch (error) {
+        return res.status(500).json({ message: "Unhandled error", error });
+    }
+});
+
+app.get("/cii/recorded", async (req, res) => {
+    const { cursor, limit, olderThan, newerThan, show, direction } = req.query;
+    const showAll = show === "true";
+    const isOlder = direction === "older"; // Determines pagination direction
+    const isNewer = direction === "newer";
+
+    try {
+        const query = {};
+
+        // Apply olderThan and newerThan filters
+        if (olderThan) {
+            query.created_at = { ...(query.created_at || {}), $lt: new Date(olderThan) };
+        }
+        if (newerThan) {
+            query.created_at = { ...(query.created_at || {}), $gt: new Date(newerThan) };
+        }
+
+        if (cursor) {
+            const cursorDate = new Date(cursor);
+
+            // if (isOlder) {
+                query.created_at = { ...(query.created_at || {}), $lt: cursorDate };
+            // } else if (isNewer) {
+            //     query.created_at = { ...(query.created_at || {}), $gt: cursorDate };
+            // }
+        }
+
+        if (!showAll) {
+            query.volume = { $exists: true, $ne: null };
+        }
+
+        // const sortDirection = isNewer ? 1 : -1; 
+        const sortDirection = -1; 
+
+        const records = await RecordedValue.find(query)
+            .sort({ created_at: sortDirection })
+            .limit(Number(limit) || 50);
+
+        const nextCursor =
+            records.length > 0
+                ? isNewer
+                    ? records[0].created_at 
+                    : records[records.length - 1].created_at
+                : null;
+
+        res.json({
+            data: records.map((item) => ({
+                id: item._id,
+                mmsi: item.mmsi,
+                distance: item.distance,
+                volume: item.volume,
+                cii: item.cii,
+                created_at: item.created_at,
+            })),
+            nextCursor,
+        });
+    } catch (error) {
+        console.error("Error fetching records:", error);
+        res.status(500).json({ message: "Internal Server Error", error });
+    }
+});
+
 
 module.exports = { app, ciiList };
