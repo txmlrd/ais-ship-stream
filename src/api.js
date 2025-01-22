@@ -10,7 +10,7 @@ app.use(cors());
 
 app.use(express.json());
 
-let ciiList = [];
+let ciiList = [{ mmsi: 566726000 }]; // {mmsi: 0, cii: 0, distance: 0, mass: 0}
 
 app.post("/cii", async (req, res) => {
     const { mmsi, cii } = req.body;
@@ -35,8 +35,8 @@ app.get("/cii", async (req, res) => {
     res.json(ciiList);
 });
 
-app.post("/cii/:id/volume", async (req, res) => {
-    const { volume } = req.body;
+app.post("/cii/:id/mass", async (req, res) => {
+    const { mass } = req.body;
     const { id } = req.params;
 
     try {
@@ -46,14 +46,37 @@ app.post("/cii/:id/volume", async (req, res) => {
             return res.status(404).json({ message: "Record not found" });
         }
 
-        const cii = calculateCii(volume, record.distance);
+        const cii = calculateCii(mass, record.distance);
 
-        record.volume = volume;
+        record.mass = mass;
         record.cii = cii;
+
+        const existingItemIndex = ciiList.findIndex(item => item.mmsi == record.mmsi);
+
+        if (!ciiList[existingItemIndex].last_change || ciiList[existingItemIndex].last_change < record.created_at) {
+            ciiList[existingItemIndex].cii = cii;
+            ciiList[existingItemIndex].mass = mass;
+            ciiList[existingItemIndex].last_change = record.created_at
+        }
+
         await record.save();
 
         return res.status(200).json({ message: "Record updated successfully", record });
     } catch (error) {
+        console.log(error)
+        return res.status(500).json({ message: "Unhandled error", error });
+    }
+});
+
+app.delete("/cii/:id/mass", async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const record = await RecordedValue.deleteOne({ _id: id });
+
+        return res.status(200).json({ message: "Record deleted successfully", record });
+    } catch (error) {
+        console.log(error)
         return res.status(500).json({ message: "Unhandled error", error });
     }
 });
@@ -79,18 +102,18 @@ app.get("/cii/recorded", async (req, res) => {
             const cursorDate = new Date(cursor);
 
             // if (isOlder) {
-                query.created_at = { ...(query.created_at || {}), $lt: cursorDate };
+            query.created_at = { ...(query.created_at || {}), $lt: cursorDate };
             // } else if (isNewer) {
             //     query.created_at = { ...(query.created_at || {}), $gt: cursorDate };
             // }
         }
 
         if (!showAll) {
-            query.volume = { $exists: true, $ne: null };
+            query.mass = { $exists: true, $ne: null };
         }
 
         // const sortDirection = isNewer ? 1 : -1; 
-        const sortDirection = -1; 
+        const sortDirection = -1;
 
         const records = await RecordedValue.find(query)
             .sort({ created_at: sortDirection })
@@ -99,7 +122,7 @@ app.get("/cii/recorded", async (req, res) => {
         const nextCursor =
             records.length > 0
                 ? isNewer
-                    ? records[0].created_at 
+                    ? records[0].created_at
                     : records[records.length - 1].created_at
                 : null;
 
@@ -108,7 +131,8 @@ app.get("/cii/recorded", async (req, res) => {
                 id: item._id,
                 mmsi: item.mmsi,
                 distance: item.distance,
-                volume: item.volume,
+                accumulated_distance: item.accumulated_distance,
+                mass: item.mass,
                 cii: item.cii,
                 created_at: item.created_at,
             })),

@@ -6,8 +6,9 @@ const recordedValueSchema = new Schema(
     {
         mmsi: { type: String },
         cii: { type: Number },
-        volume: { type: Number },
+        mass: { type: Number },
         distance: { type: Number },
+        accumulated_distance: { type: Number }
     },
     {
         timestamps: {
