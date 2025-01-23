@@ -10,7 +10,7 @@ app.use(cors());
 
 app.use(express.json());
 
-let ciiList = [{ mmsi: 566726000 }]; // {mmsi: 0, cii: 0, distance: 0, mass: 0}
+let ciiList = [{ mmsi: 525005355 }]; // {mmsi: 0, cii: 0, distance: 0, mass: 0}
 
 app.post("/cii", async (req, res) => {
     const { mmsi, cii } = req.body;
@@ -56,7 +56,6 @@ app.post("/cii/:id/mass", async (req, res) => {
         if (!ciiList[existingItemIndex].last_change || ciiList[existingItemIndex].last_change < record.created_at) {
             ciiList[existingItemIndex].cii = cii;
             ciiList[existingItemIndex].mass = mass;
-            ciiList[existingItemIndex].distance = record.accumulated_distance;
             ciiList[existingItemIndex].last_change = record.created_at
         }
 
@@ -73,7 +72,12 @@ app.delete("/cii/:id/mass", async (req, res) => {
     const { id } = req.params;
 
     try {
-        const record = await RecordedValue.deleteOne({ _id: id });
+        const record = await RecordedValue.findOne({ _id: id });
+
+        record.mass = null
+        record.cii = null
+
+        record.save()
 
         return res.status(200).json({ message: "Record deleted successfully", record });
     } catch (error) {

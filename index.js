@@ -10,7 +10,7 @@ connectDB()
 
 const previousCoordinate = new Map();
 
-const trackedShip = 566726000 //525005355
+const trackedShip = 525005355 //525005355
 
 const server = http.createServer(app);
 
@@ -35,15 +35,17 @@ aisSocket.on("messageFromServer", async (data) => {
 
     wss.broadcast(dataJson);
     if (dataJson.message.data.immsi === trackedShip) {
-        console.log(existingItemIndex)
-        console.log(`MMSI: ${dataJson.message.data.immsi} Lat: ${dataJson.message.data.lat} Lon: ${dataJson.message.data.lon}`)
-        console.log(dataJson)
         const { lon, lat } = dataJson.message.data
+
         const previous = previousCoordinate.get(trackedShip)
+
         let accDistance = 0
+
         if (previous) {
             const distance = calculateDistance(previous.lat, previous.lon, lat, lon)
+
             accDistance = distance + (previous.accDistance ?? 0)
+
             if (!isNaN(distance) && distance > 0) {
                 try {
                     RecordedValue.create({
@@ -51,8 +53,9 @@ aisSocket.on("messageFromServer", async (data) => {
                         distance,
                         accumulated_distance: accDistance
                     })
-                    if (existingItemIndex !== -1)
+                    if (existingItemIndex !== -1) {
                         ciiList[existingItemIndex].distance = accDistance
+                    }
                 } catch (error) {
 
                 }
