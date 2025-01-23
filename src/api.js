@@ -74,6 +74,15 @@ app.delete("/cii/:id/mass", async (req, res) => {
     try {
         const record = await RecordedValue.findOne({ _id: id });
 
+        const latestRecord = await RecordedValue.findOne({ mmsi: record.mmsi, mass: { $exists: true, $ne: null }, }).sort({ created_at: -1 });
+        
+        const existingItemIndex = ciiList.findIndex(item => item.mmsi == record.mmsi);
+        if (!ciiList[existingItemIndex].last_change || ciiList[existingItemIndex].last_change < record.created_at) {
+            ciiList[existingItemIndex].cii = latestRecord.cii ?? null;
+            ciiList[existingItemIndex].mass = latestRecord.mass ?? null;
+            ciiList[existingItemIndex].last_change = latestRecord.created_at ?? undefined
+        }
+
         record.mass = null
         record.cii = null
 
