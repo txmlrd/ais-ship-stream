@@ -46,7 +46,7 @@ aisSocket.on("messageFromServer", async (data) => {
 
             accDistance = distance + (previous.accDistance ?? 0)
 
-            if (!isNaN(distance) && distance > 0) {
+            if (!isNaN(distance) && !isNaN(accDistance) && distance > 0) {
                 try {
                     RecordedValue.create({
                         mmsi: trackedShip,
