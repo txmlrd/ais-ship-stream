@@ -46,7 +46,7 @@ app.post("/cii/:id/mass", async (req, res) => {
             return res.status(404).json({ message: "Record not found" });
         }
 
-        const cii = calculateCii(mass, record.distance);
+        const cii = calculateCii(mass, record.accumulated_distance);
 
         record.mass = mass;
         record.cii = cii;
@@ -56,6 +56,7 @@ app.post("/cii/:id/mass", async (req, res) => {
         if (!ciiList[existingItemIndex].last_change || ciiList[existingItemIndex].last_change < record.created_at) {
             ciiList[existingItemIndex].cii = cii;
             ciiList[existingItemIndex].mass = mass;
+            ciiList[existingItemIndex].distance = record.accumulated_distance;
             ciiList[existingItemIndex].last_change = record.created_at
         }
 
