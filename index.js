@@ -40,9 +40,10 @@ aisSocket.on("messageFromServer", async (data) => {
         const previous = previousCoordinate.get(trackedShip)
 
         let accDistance = 0
+        let distance = 0
 
         if (previous) {
-            const distance = calculateDistance(previous.lat, previous.lon, lat, lon)
+            distance = calculateDistance(previous.lat, previous.lon, lat, lon)
 
             accDistance = distance + (previous.accDistance ?? 0)
 
@@ -59,9 +60,25 @@ aisSocket.on("messageFromServer", async (data) => {
                 } catch (error) {
 
                 }
+            } else {
+                switch (true) {
+                    case isNaN(distance):
+                        console.log('Distance NaN')
+                        break;
+                    case isNaN(accDistance):
+                        console.log('Accumulated Distance NaN')
+                        break;
+                    case distance > 0:
+                        console.log('Distance 0')
+                        break;
+                    default:
+                        break;
+                }
             }
         }
-        previousCoordinate.set(trackedShip, { lon, lat, accDistance })
+        console.log(`New Message: MMSI: ${dataJson.message.data.immsi}; Lat: ${dataJson.message.data.lat}; Lon: ${dataJson.message.data.lon}; AccDist: ${accDistance}; Distance ${distance}`)
+        if (lon && lat)
+            previousCoordinate.set(trackedShip, { lon, lat, accDistance })
     }
 });
 
